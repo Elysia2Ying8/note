@@ -1,0 +1,223 @@
+##### 参考代码（活动选择问题（贪心））
+
+```cpp
+#include <bits/stdc++.h>
+using namespace std;
+
+const int mxn = 1e3 + 5;
+int n;
+
+struct Activities {
+    int s, f, id;
+    bool operator<(const Activities& act) const {
+        return f < act.f;
+    }
+} act[mxn];
+
+int main() {
+    ios::sync_with_stdio(0), cin.tie(0), cout.tie(0);
+    cin >> n;
+
+    for (int i = 1; i <= n; ++i) {
+        cin >> act[i].s >> act[i].f;
+        act[i].id = i;  // 添加原始编号
+    }
+
+    sort(act + 1, act + 1 + n); // 按结束时间排序
+
+    vector<int> selected_ids; // 保存被选中的活动编号
+    vector<pair<int, int>> selected_times; // 可选：保存时间段
+
+    int ed = act[1].f;
+    selected_ids.push_back(act[1].id);
+    selected_times.emplace_back(act[1].s, act[1].f);
+
+    for (int i = 2; i <= n; ++i) {
+        if (act[i].s >= ed) {
+            ed = act[i].f;
+            selected_ids.push_back(act[i].id);
+            selected_times.emplace_back(act[i].s, act[i].f);
+        }
+    }
+
+    cout << "最多活动数量: " << selected_ids.size() << '\n';
+    cout << "被选中的活动编号: ";
+    for (int id : selected_ids)
+        cout << id << ' ';
+    cout << "\n对应时间区间: ";
+    for (auto [s, f] : selected_times)
+        cout << "(" << s << "," << f << ") ";
+    cout << '\n';
+
+    return 0;
+}
+
+```
+
+
+
+### 1. emplace_back相关说明
+
++ `emplace_back` 是 C++ STL 容器（如 `vector`, `deque` 等）提供的一个成员函数，用来**在容器末尾就地构造元素**。它的作用类似于 `push_back`，但效率更高一些，尤其在构造对象时。
+
+  
+
+> **`selected_times.emplace_back(act[i].s, act[i].f);`**
+> 这个语句的作用是：
+>
+> 
+>> 在 `selected_times`（一个 `vector<pair<int, int>>`）的末尾添加一个新的 (s, f)对；
+>>
+>>
+>>和 `selected_times.push_back(make_pair(act[i].s, act[i].f)); `效果相同，但更高效。
+
+
+
+
+
+### 2. 区别总结：`emplace_back` vs `push_back`
+
+| 特性         | `push_back`                     | `emplace_back`                       |
+| ------------ | ------------------------------- | ------------------------------------ |
+| 用法         | 需要传一个构造好的对象          | 传构造参数，由容器内部构造对象       |
+| 效率         | 稍慢，需要创建临时对象          | 更快，直接在容器内部构造，无中间对象 |
+| 示例（pair） | `v.push_back(make_pair(1, 2));` | `v.emplace_back(1, 2);`              |
+| 推荐用法     | 对已有对象（或拷贝）            | 对构造新对象（特别是结构体、pair等） |
+
+
+
+
+
+
+
+### 3.疑问
+
++ #### `selected_ids.push_back(act[1].id);` 那这句话也可以改成`emplace`吗
+
+  >##### ✅ 答案是：**可以改，但没有意义，没什么优势。**
+  >
+  >------
+  >
+  >##### ✅ 原因说明：
+  >
+  >- `selected_ids` 是一个 `vector<int>`，`int` 是**基础类型（内置类型）**；
+  >- `push_back` 和 `emplace_back` 对于基础类型是完全等效的，**不会有性能差异**；
+  >- `emplace_back` 的优势体现在**构造对象时省去中间步骤**，如 `pair`, `struct`, `class` 等复杂类型。
+  >
+  >------
+  >
+  >##### ✅ 正确理解：
+  >
+  >| 用在类型         | 用 `push_back` | 用 `emplace_back` |
+  >| ---------------- | -------------- | ----------------- |
+  >| `vector<int>`    | ✅ 推荐         | ✅ 可用，但没区别  |
+  >| `vector<pair<>>` | ⛔️ 写法繁琐     | ✅ 推荐（效率高）  |
+  >| `vector<struct>` | ⛔️ 构造麻烦     | ✅ 推荐            |
+  >
+  >------
+  >
+  >##### ✅ 所以你的代码：
+  >
+  >```cpp
+  >selected_ids.push_back(act[1].id);  // ✅ 推荐，清晰高效
+  >```
+  >
+  >改成：
+  >
+  >```cpp
+  >selected_ids.emplace_back(act[1].id); // ✅ 也能用，但没有意义
+  >```
+  >
+  >**效果完全一样，推荐继续使用 `push_back`。**
+
+
+
+
+
+
+
++ #### `v.push_back(make_pair(1, 2));`
+
+  ####  为什么用`push_back`要这么写，我原本已经构造好的pair类型的act为什么不能直接输入
+  
+  
+  
+  #### *此处问题有个漏洞，act 并不是 pair 类型，而是 activities 类型*
+  
+  
+  
+  > 这个问题非常关键，涉及 C++ 的**类型匹配和对象构造方式**。你提到的是：
+  >
+  > ```cpp
+  > v.push_back(make_pair(1, 2)); // 正确 ✅
+  > ```
+  > 
+  > 而你疑问的是：**为什么不能像这样直接写？**
+  > 
+  > ```cpp
+  >pair<int, int> p = {1, 2};
+  > v.push_back(p); // 当然可以 ✅
+  >
+  > // 但如果你尝试写：
+  > v.push_back(1, 2); // ❌ 错误！
+  > ```
+  > 
+  > ------
+  > 
+  > #### ✅ 正确的理解：
+  >
+  > ##### 1. `push_back()` 接受的是一个“已经构造好的对象”：
+  >
+  > ```cpp
+  >vector<pair<int, int>> v;
+  > pair<int, int> p = {1, 2};
+  >v.push_back(p); // ✅ 你已经构造好了一个 pair 对象，push 进去没问题
+  > ```
+  > 
+  > ##### 2. `make_pair(1, 2)` 是在调用 `push_back()` 时**构造好了一个 pair 对象**：
+  > 
+  > ```cpp
+  >v.push_back(make_pair(1, 2)); // ✅ 把构造好的 pair 临时对象推入 vector
+  > ```
+  >
+  > ##### 3. 错误写法分析：
+  > 
+  > ```cpp
+  > v.push_back(1, 2); // ❌ 错误！push_back 只能接受**一个参数**
+  > ```
+  > 
+  > 这个写法会报错，因为：
+  >
+  > - `push_back` 只接受**一个参数**（即你要压入的元素对象）；
+  >- 你写的 `(1, 2)` 是两个参数，它不知道你想构造 `pair<int, int>`，所以编译报错。
+  > 
+  > ------
+  > 
+  > #### ✅ `emplace_back()` 解决这个问题
+  > 
+  > ```cpp
+  > v.emplace_back(1, 2); // ✅ 正确！它知道你想构造一个 pair<int, int>
+  >```
+  > 
+  >原因是 `emplace_back()` 会在容器尾部**就地构造元素**，接受构造参数，而不是整个对象，所以不需要你先写 `make_pair()`。
+  > 
+  > ------
+  >
+  > #### ✅ 总结类比
+  >
+  > | 写法                           | 合法？ | 原因                                              |
+  >| ------------------------------ | ------ | ------------------------------------------------- |
+  > | `v.push_back(make_pair(1,2));` | ✅      | 传的是一个构造好的对象                            |
+  > | `v.push_back(p);`              | ✅      | 你提前构造好了 `pair` 对象                        |
+  > | `v.push_back(1,2);`            | ❌      | `push_back` 只接受一个参数，不知道你要构造 `pair` |
+  > | `v.emplace_back(1,2);`         | ✅      | 自动推导构造参数，原地构造 `pair<int,int>`        |
+  > 
+  > ------
+  > 
+  >#### ✅ 推荐记忆小技巧：
+  > 
+  >> `push_back` 是“我已经有这个对象了”，
+  > > `emplace_back` 是“你来帮我造这个对象”。
+
+
+
